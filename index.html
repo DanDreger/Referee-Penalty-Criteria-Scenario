@@ -5,9 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Call The Play - Video Review Trainer</title>
 </head>
-<body style="margin:0; padding:20px; background:#0b0b0c; min-height:100vh;">
+<body style="margin:0; padding:0; background:#0b0b0c;">
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap');
+
+  html, body{ height:100%; overflow:hidden; }
 
   #reftrainer, #reftrainer *{ box-sizing:border-box; }
 
@@ -22,11 +24,21 @@
     font-family:'Inter',system-ui,sans-serif;
     background:var(--black);
     color:var(--white);
-    border-radius:14px;
+    width:100vw;
+    height:100vh;
+    height:100dvh; /* better viewport-height handling on mobile browsers */
+    display:flex;
+    flex-direction:column;
+    border-radius:0;
     overflow:hidden;
-    max-width:720px;
-    margin:0 auto;
-    border:1px solid #2a2a2c;
+    max-width:none;
+    margin:0;
+    border:none;
+  }
+  #reftrainer:fullscreen,
+  #reftrainer:-webkit-full-screen{
+    width:100vw;
+    height:100vh;
   }
 
   /* ---- Header stripe ---- */
@@ -97,17 +109,30 @@
   }
 
   /* ---- Stage ---- */
+  /* This wrap takes all leftover vertical space (header/tabs/transport keep
+     their natural size); the stage itself is centered and sized as large as
+     possible within it while preserving 16:9, letterboxing on any window
+     shape instead of stretching or cropping. */
   #reftrainer .stage-wrap{
+    flex:1 1 auto;
+    min-height:0;
     padding:16px 20px 0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
   }
   #reftrainer .stage{
     position:relative;
     width:100%;
+    height:100%;
+    max-width:100%;
+    max-height:100%;
     aspect-ratio:16/9;
     background:#000;
     border-radius:8px;
     overflow:hidden;
     border:1px solid #2a2a2c;
+    margin:auto;
   }
 
   /* Each camera (clip instance) is a full-bleed layer; only the selected one shows */
@@ -216,6 +241,14 @@
   #reftrainer .dot.ready{
     border-color:var(--orange-dim);
     color:var(--white);
+  }
+  #reftrainer .dot.error{
+    border-color:#e5484d;
+    color:#e5484d;
+    font-weight:700;
+  }
+  #reftrainer .dot.error:hover{
+    background:rgba(229,72,77,0.15);
   }
   #reftrainer .dot.active{
     background:var(--orange);
@@ -353,6 +386,9 @@
     <button id="rt-mute" title="Toggle sound">
       <svg id="rt-mute-icon" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.42.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06a8.99 8.99 0 0 0 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/></svg>
     </button>
+    <button id="rt-fullscreen" title="Fullscreen">
+      <svg id="rt-fullscreen-icon" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
+    </button>
   </div>
 
   <div class="status-row">Playlist <b id="rt-plabel">1</b> &nbsp;·&nbsp; Camera <b id="rt-clabel">–</b> of <b id="rt-ctotal">5</b></div>
@@ -421,6 +457,9 @@
   var ppBtn = document.getElementById('rt-playpause');
   var muteBtn = document.getElementById('rt-mute');
   var muteIcon = document.getElementById('rt-mute-icon');
+  var fsBtn = document.getElementById('rt-fullscreen');
+  var fsIcon = document.getElementById('rt-fullscreen-icon');
+  var rootEl = document.getElementById('reftrainer');
 
   var curPlaylist = 0;
   var curClip = -1;           // -1 = no camera selected yet
@@ -455,6 +494,33 @@
     });
   });
   setMuteIcon();
+
+  // ---- Fullscreen toggle ----
+  // Cross-browser: standard API plus Safari/old-WebKit prefixed fallback.
+  var ICON_FS_ENTER = '<path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/>';
+  var ICON_FS_EXIT = '<path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/>';
+
+  function isFullscreen(){
+    return !!(document.fullscreenElement || document.webkitFullscreenElement);
+  }
+  function requestFs(el){
+    if (el.requestFullscreen) return el.requestFullscreen();
+    if (el.webkitRequestFullscreen) return el.webkitRequestFullscreen();
+  }
+  function exitFs(){
+    if (document.exitFullscreen) return document.exitFullscreen();
+    if (document.webkitExitFullscreen) return document.webkitExitFullscreen();
+  }
+  function setFsIcon(){
+    fsIcon.innerHTML = isFullscreen() ? ICON_FS_EXIT : ICON_FS_ENTER;
+    fsBtn.title = isFullscreen() ? 'Exit fullscreen' : 'Fullscreen';
+  }
+  fsBtn.addEventListener('click', function(){
+    if (isFullscreen()) { exitFs(); } else { requestFs(rootEl); }
+  });
+  document.addEventListener('fullscreenchange', setFsIcon);
+  document.addEventListener('webkitfullscreenchange', setFsIcon);
+  setFsIcon();
 
   function attemptPlay(playFn){
     lastPlayFn = playFn;
@@ -500,13 +566,24 @@
     var clips = PLAYLISTS[curPlaylist];
     clips.forEach(function(c, i){
       var inst = camInstances[i];
-      var ready = !!(inst && inst.ready);
+      var status = inst ? (inst.status || 'loading') : 'loading';
       var d = document.createElement('button');
-      d.className = 'dot' + (i === curClip ? ' active' : '') + (ready ? ' ready' : ' loading');
-      d.textContent = ready ? (i + 1) : '…';
-      d.disabled = !ready;
-      d.title = ready ? ('Camera ' + (i + 1)) : 'Loading…';
-      d.addEventListener('click', function(){ selectCamera(i); });
+      d.className = 'dot' + (i === curClip ? ' active' : '') + ' ' + status;
+      if (status === 'ready') {
+        d.textContent = (i + 1);
+        d.title = 'Camera ' + (i + 1);
+        d.disabled = false;
+        d.addEventListener('click', function(){ selectCamera(i); });
+      } else if (status === 'error') {
+        d.textContent = '!';
+        d.title = 'Camera ' + (i + 1) + ' failed to load — click to retry';
+        d.disabled = false;
+        d.addEventListener('click', function(){ retryCamera(i); });
+      } else {
+        d.textContent = '…';
+        d.title = 'Loading…';
+        d.disabled = true;
+      }
       dotsEl.appendChild(d);
     });
   }
@@ -517,12 +594,12 @@
     ctotalEl.textContent = total;
     clabelEl.textContent = curClip >= 0 ? (curClip + 1) : '–';
 
-    var readyCount = camInstances.filter(function(i){ return i.ready; }).length;
+    var readyCount = camInstances.filter(function(i){ return i.status === 'ready'; }).length;
     ribbonFill.style.width = (total ? (readyCount / total) * 100 : 0) + '%';
 
-    var camReady = curClip >= 0 && camInstances[curClip] && camInstances[curClip].ready;
-    prevBtn.disabled = !(curClip > 0 && camInstances[curClip - 1] && camInstances[curClip - 1].ready);
-    nextBtn.disabled = !(curClip >= 0 && curClip < total - 1 && camInstances[curClip + 1] && camInstances[curClip + 1].ready);
+    var camReady = curClip >= 0 && camInstances[curClip] && camInstances[curClip].status === 'ready';
+    prevBtn.disabled = !(curClip > 0 && camInstances[curClip - 1] && camInstances[curClip - 1].status === 'ready');
+    nextBtn.disabled = !(curClip >= 0 && curClip < total - 1 && camInstances[curClip + 1] && camInstances[curClip + 1].status === 'ready');
     replayBtn.disabled = !camReady;
     ppBtn.disabled = !camReady;
 
@@ -535,13 +612,17 @@
 
   function updateStageStatus(){
     var total = camInstances.length;
-    var readyCount = camInstances.filter(function(i){ return i.ready; }).length;
+    var readyCount = camInstances.filter(function(i){ return i.status === 'ready'; }).length;
+    var errorCount = camInstances.filter(function(i){ return i.status === 'error'; }).length;
     if (curClip >= 0) {
       stageStatusEl.classList.add('hide');
       return;
     }
     stageStatusEl.classList.remove('hide');
-    if (readyCount === total && total > 0) {
+    if (errorCount > 0) {
+      stageStatusBig.textContent = errorCount + ' camera' + (errorCount > 1 ? 's' : '') + ' failed to load';
+      stageStatusSmall.textContent = 'Click the "!" button to retry, or check the browser console for details';
+    } else if (readyCount === total && total > 0) {
       stageStatusBig.textContent = 'All cameras ready';
       stageStatusSmall.textContent = 'Click a number below to switch to that camera';
     } else {
@@ -599,6 +680,8 @@
   }
 
   // ---- Load all cameras (clips) for a playlist in the background ----
+  var CAMERA_LOAD_TIMEOUT_MS = 20000;
+
   function loadPlaylistCameras(pIdx){
     disposeCameras();
     loadedPlaylistIndex = pIdx;
@@ -606,12 +689,59 @@
     var clips = PLAYLISTS[pIdx];
 
     clips.forEach(function(clip, idx){
-      var inst = { type: clip.type, clip: clip, ready: false, container: null, player: null, ytPlayer: null, pollTimer: null };
-      camInstances.push(inst);
-      if (clip.type === 'bc') createBcCamera(inst, clip, idx, pIdx);
-      else createYtCamera(inst, clip, idx, pIdx);
+      startCamera(clip, idx, pIdx);
     });
 
+    renderDots();
+    renderStatus();
+    updateStageStatus();
+  }
+
+  function startCamera(clip, idx, pIdx){
+    var inst = { type: clip.type, clip: clip, status: 'loading', container: null, player: null, ytPlayer: null, pollTimer: null, timeoutTimer: null };
+    camInstances[idx] = inst;
+
+    inst.timeoutTimer = setTimeout(function(){
+      if (loadedPlaylistIndex !== pIdx || camInstances[idx] !== inst) return;
+      if (inst.status === 'loading') {
+        console.warn('[cam ' + idx + '] timed out waiting for content to become ready');
+        markCameraError(inst, idx, pIdx);
+      }
+    }, CAMERA_LOAD_TIMEOUT_MS);
+
+    if (clip.type === 'bc') createBcCamera(inst, clip, idx, pIdx);
+    else createYtCamera(inst, clip, idx, pIdx);
+  }
+
+  function markCameraReady(inst, idx, pIdx){
+    if (loadedPlaylistIndex !== pIdx || camInstances[idx] !== inst) return;
+    clearTimeout(inst.timeoutTimer);
+    inst.status = 'ready';
+    renderDots();
+    renderStatus();
+    updateStageStatus();
+  }
+
+  function markCameraError(inst, idx, pIdx){
+    if (loadedPlaylistIndex !== pIdx || camInstances[idx] !== inst) return;
+    clearTimeout(inst.timeoutTimer);
+    inst.status = 'error';
+    renderDots();
+    renderStatus();
+    updateStageStatus();
+  }
+
+  function retryCamera(idx){
+    var pIdx = loadedPlaylistIndex;
+    var old = camInstances[idx];
+    if (old) {
+      clearTimeout(old.timeoutTimer);
+      clearInterval(old.pollTimer);
+      if (old.type === 'bc' && old.player) { try { old.player.dispose(); } catch(e){} }
+      if (old.type === 'yt' && old.ytPlayer) { try { old.ytPlayer.destroy(); } catch(e){} }
+      if (old.container && old.container.parentNode) { old.container.parentNode.removeChild(old.container); }
+    }
+    startCamera(PLAYLISTS[pIdx][idx], idx, pIdx);
     renderDots();
     renderStatus();
     updateStageStatus();
@@ -642,10 +772,13 @@
         p.one('loadedmetadata', function(){
           p.currentTime(clip.start);
           p.pause();
-          inst.ready = true;
-          renderDots();
-          renderStatus();
-          updateStageStatus();
+          markCameraReady(inst, idx, pIdx);
+        });
+
+        p.on('error', function(){
+          var err = p.error && p.error();
+          console.warn('[cam ' + idx + '] Brightcove player error', err);
+          markCameraError(inst, idx, pIdx);
         });
 
         p.on('timeupdate', function(){
@@ -657,7 +790,11 @@
         p.on('pause', function(){ if (curClip === idx && camInstances[idx] === inst) setPPIcon(false); });
 
         p.catalog.getVideo(clip.id, function(error, video){
-          if (error) { console.error('[cam ' + idx + ']', error); return; }
+          if (error) {
+            console.error('[cam ' + idx + '] catalog lookup failed', error);
+            markCameraError(inst, idx, pIdx);
+            return;
+          }
           p.catalog.load(video);
           // Muted play is allowed without a user gesture — this is what
           // lets the ad (and then content) run automatically in the background.
@@ -691,14 +828,18 @@
             try { yp.mute(); } catch(e){}
             yp.loadVideoById({ videoId: clip.id, startSeconds: clip.start });
           },
+          onError: function(e){
+            // 2=bad param, 5=HTML5 player error, 100=video not found,
+            // 101/150=embedding disabled by the video owner (the likeliest
+            // culprit for an intermittent single clip like this one).
+            console.warn('[cam ' + idx + '] YouTube error code', e.data);
+            markCameraError(inst, idx, pIdx);
+          },
           onStateChange: function(e){
-            if (e.data === YT.PlayerState.PLAYING && !inst.ready) {
+            if (e.data === YT.PlayerState.PLAYING && inst.status !== 'ready') {
               yp.seekTo(clip.start, true);
               yp.pauseVideo();
-              inst.ready = true;
-              renderDots();
-              renderStatus();
-              updateStageStatus();
+              markCameraReady(inst, idx, pIdx);
               return;
             }
             if (curClip === idx && camInstances[idx] === inst) {
@@ -723,7 +864,7 @@
   // ---- Camera switching (the "director" action) ----
   function selectCamera(idx){
     var inst = camInstances[idx];
-    if (!inst || !inst.ready) return;
+    if (!inst || inst.status !== 'ready') return;
     camInstances.forEach(function(ci, i){
       if (ci.container) ci.container.style.display = (i === idx ? 'block' : 'none');
     });
