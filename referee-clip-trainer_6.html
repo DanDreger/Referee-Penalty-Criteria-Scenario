@@ -1,0 +1,773 @@
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap');
+
+  #reftrainer, #reftrainer *{ box-sizing:border-box; }
+
+  #reftrainer{
+    --black:#0b0b0c;
+    --panel:#18181a;
+    --panel-2:#212123;
+    --white:#f5f4f1;
+    --muted:#9a9a9d;
+    --orange:#ff5a1f;
+    --orange-dim:#c9430f;
+    font-family:'Inter',system-ui,sans-serif;
+    background:var(--black);
+    color:var(--white);
+    border-radius:14px;
+    overflow:hidden;
+    max-width:720px;
+    margin:0 auto;
+    border:1px solid #2a2a2c;
+  }
+
+  /* ---- Header stripe ---- */
+  #reftrainer .stripe{
+    height:10px;
+    background:repeating-linear-gradient(
+      -45deg,
+      var(--white) 0 10px,
+      var(--black) 10px 20px,
+      var(--orange) 20px 30px,
+      var(--black) 30px 40px
+    );
+  }
+
+  #reftrainer .header{
+    padding:18px 20px 14px;
+    display:flex;
+    align-items:baseline;
+    justify-content:space-between;
+    border-bottom:1px solid #232325;
+  }
+
+  #reftrainer .title{
+    font-family:'Oswald',sans-serif;
+    font-weight:700;
+    letter-spacing:0.06em;
+    font-size:22px;
+    text-transform:uppercase;
+  }
+  #reftrainer .title span{ color:var(--orange); }
+
+  #reftrainer .subtitle{
+    font-size:11px;
+    letter-spacing:0.12em;
+    text-transform:uppercase;
+    color:var(--muted);
+  }
+
+  /* ---- Playlist tabs ---- */
+  #reftrainer .tabs{
+    display:flex;
+    gap:8px;
+    padding:16px 20px 4px;
+  }
+  #reftrainer .tab{
+    flex:1;
+    aspect-ratio:1;
+    max-width:52px;
+    border-radius:50%;
+    border:2px solid #333335;
+    background:var(--panel);
+    color:var(--muted);
+    font-family:'Oswald',sans-serif;
+    font-weight:700;
+    font-size:18px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    cursor:pointer;
+    transition:all .15s ease;
+  }
+  #reftrainer .tab:hover{ border-color:var(--orange-dim); color:var(--white); }
+  #reftrainer .tab.active{
+    background:var(--orange);
+    border-color:var(--orange);
+    color:var(--black);
+    box-shadow:0 0 0 3px rgba(255,90,31,0.2);
+  }
+
+  /* ---- Stage ---- */
+  #reftrainer .stage-wrap{
+    padding:16px 20px 0;
+  }
+  #reftrainer .stage{
+    position:relative;
+    width:100%;
+    aspect-ratio:16/9;
+    background:#000;
+    border-radius:8px;
+    overflow:hidden;
+    border:1px solid #2a2a2c;
+  }
+
+  /* Each camera (clip instance) is a full-bleed layer; only the selected one shows */
+  #reftrainer .cam-instance{
+    position:absolute;
+    inset:0;
+    width:100%;
+    height:100%;
+  }
+  #reftrainer .cam-instance video-js,
+  #reftrainer .cam-instance iframe{
+    position:absolute;
+    inset:0;
+    width:100%;
+    height:100%;
+    border:0;
+  }
+
+  #reftrainer .clip-badge{
+    position:absolute;
+    top:10px;
+    right:10px;
+    z-index:5;
+    background:rgba(0,0,0,0.7);
+    border:1px solid var(--orange);
+    color:var(--white);
+    font-family:'Oswald',sans-serif;
+    font-size:12px;
+    letter-spacing:0.05em;
+    padding:3px 9px;
+    border-radius:20px;
+  }
+
+  /* Stage status overlay: shown before any camera is selected, reports load progress */
+  #reftrainer .stage-status{
+    position:absolute;
+    inset:0;
+    z-index:6;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    flex-direction:column;
+    gap:10px;
+    background:rgba(0,0,0,0.85);
+    text-align:center;
+    padding:20px;
+  }
+  #reftrainer .stage-status.hide{ display:none; }
+  #reftrainer .stage-status .big{
+    font-family:'Oswald',sans-serif;
+    text-transform:uppercase;
+    letter-spacing:0.08em;
+    font-size:15px;
+    color:var(--orange);
+  }
+  #reftrainer .stage-status .small{
+    font-size:11px;
+    letter-spacing:0.1em;
+    text-transform:uppercase;
+    color:var(--muted);
+  }
+
+  #reftrainer .tap-overlay{
+    position:absolute;
+    inset:0;
+    z-index:10;
+    background:rgba(0,0,0,0.55);
+    display:none;
+    align-items:center;
+    justify-content:center;
+    cursor:pointer;
+  }
+  #reftrainer .tap-overlay.show{ display:flex; }
+  #reftrainer .tap-overlay .btn-circle{
+    width:64px;height:64px;border-radius:50%;
+    background:var(--orange);
+    display:flex;align-items:center;justify-content:center;
+    box-shadow:0 0 0 6px rgba(255,90,31,0.18);
+  }
+  #reftrainer .tap-overlay .btn-circle svg{ margin-left:4px; }
+
+  /* ---- Camera select buttons (formerly "dots") ---- */
+  #reftrainer .dots{
+    display:flex;
+    gap:8px;
+    justify-content:center;
+    padding:14px 20px 12px;
+    flex-wrap:wrap;
+  }
+  #reftrainer .dot{
+    width:26px;height:26px;border-radius:50%;
+    border:2px solid #38383a;
+    background:transparent;
+    color:var(--muted);
+    font-family:'Oswald',sans-serif;
+    font-size:11px;
+    display:flex;align-items:center;justify-content:center;
+    cursor:pointer;
+    transition:all .15s ease;
+  }
+  #reftrainer .dot:hover:not(:disabled){ border-color:var(--orange-dim); }
+  #reftrainer .dot.loading{
+    opacity:0.35;
+    cursor:not-allowed;
+  }
+  #reftrainer .dot.ready{
+    border-color:var(--orange-dim);
+    color:var(--white);
+  }
+  #reftrainer .dot.active{
+    background:var(--orange);
+    border-color:var(--orange);
+    color:var(--black);
+    font-weight:700;
+  }
+
+  /* ---- Progress ribbon (signature element) — now shows load progress ---- */
+  #reftrainer .ribbon{
+    margin:14px 20px 0;
+    height:8px;
+    border-radius:4px;
+    background:#221f1a;
+    overflow:hidden;
+    border:1px solid #2a2a2c;
+  }
+  #reftrainer .ribbon-fill{
+    height:100%;
+    width:0%;
+    background:repeating-linear-gradient(
+      -45deg,
+      var(--orange) 0 8px,
+      var(--orange-dim) 8px 16px
+    );
+    transition:width .25s ease;
+  }
+
+  /* ---- Transport ---- */
+  #reftrainer .transport{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:10px;
+    padding:16px 20px 20px;
+    flex-wrap:wrap;
+  }
+  #reftrainer .transport button{
+    font-family:'Oswald',sans-serif;
+    letter-spacing:0.06em;
+    text-transform:uppercase;
+    font-size:13px;
+    font-weight:600;
+    color:var(--white);
+    background:var(--panel);
+    border:2px solid #333335;
+    border-radius:8px;
+    padding:10px 14px;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    gap:6px;
+    transition:all .15s ease;
+  }
+  #reftrainer .transport button:hover:not(:disabled){
+    border-color:var(--orange);
+    color:var(--orange);
+  }
+  #reftrainer .transport button:disabled{
+    opacity:0.35;
+    cursor:not-allowed;
+  }
+  #reftrainer .transport .play-btn{
+    background:var(--orange);
+    border-color:var(--orange);
+    color:var(--black);
+    padding:10px 20px;
+  }
+  #reftrainer .transport .play-btn:hover{
+    background:var(--orange-dim);
+    border-color:var(--orange-dim);
+    color:var(--white);
+  }
+
+  #reftrainer .status-row{
+    text-align:center;
+    padding:0 20px 18px;
+    font-size:11px;
+    letter-spacing:0.1em;
+    text-transform:uppercase;
+    color:var(--muted);
+    font-family:'Oswald',sans-serif;
+  }
+  #reftrainer .status-row b{ color:var(--white); }
+</style>
+
+<div id="reftrainer">
+  <div class="stripe"></div>
+  <div class="header">
+    <div>
+      <div class="title">CALL <span>THE</span> PLAY</div>
+      <div class="subtitle">Video Review Trainer — Director Mode</div>
+    </div>
+  </div>
+
+  <div class="tabs" id="rt-tabs"></div>
+
+  <div class="dots" id="rt-dots"></div>
+
+  <div class="stage-wrap">
+    <div class="stage" id="rt-stage">
+      <!-- Camera (clip) instances are injected here dynamically, one per clip -->
+      <div class="clip-badge" id="rt-badge">Loading…</div>
+      <div class="stage-status" id="rt-stage-status">
+        <div class="big" id="rt-stage-status-big">Loading cameras…</div>
+        <div class="small" id="rt-stage-status-small">0 / 5 ready</div>
+      </div>
+      <div class="tap-overlay" id="rt-tap">
+        <div class="btn-circle">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="#0b0b0c"><path d="M8 5v14l11-7z"/></svg>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="ribbon"><div class="ribbon-fill" id="rt-ribbon-fill"></div></div>
+
+  <div class="transport">
+    <button id="rt-prev" disabled>
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
+      Prev
+    </button>
+    <button id="rt-replay" disabled>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg>
+      Replay
+    </button>
+    <button id="rt-playpause" class="play-btn" disabled>
+      <svg id="rt-pp-icon" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+      <span id="rt-pp-label">Play</span>
+    </button>
+    <button id="rt-next" disabled>
+      Next
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M16 6h2v12h-2zm-3.5 6l-8.5 6V6z"/></svg>
+    </button>
+    <button id="rt-mute" title="Toggle sound">
+      <svg id="rt-mute-icon" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.42.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06a8.99 8.99 0 0 0 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/></svg>
+    </button>
+  </div>
+
+  <div class="status-row">Playlist <b id="rt-plabel">1</b> &nbsp;·&nbsp; Camera <b id="rt-clabel">–</b> of <b id="rt-ctotal">5</b></div>
+</div>
+
+<script>
+(function(){
+  var PLAYLISTS = [
+    [
+      {type:'bc', id:'6362361469112', start:16, end:24},
+      {type:'bc', id:'6362364069112', start:9,  end:14},
+      {type:'bc', id:'6362364569112', start:47, end:59},
+      {type:'bc', id:'6362363021112', start:25, end:37},
+      {type:'bc', id:'6362364111112', start:7,  end:27}
+    ],
+    [
+      {type:'bc', id:'6362365271112', start:8,  end:14},
+      {type:'bc', id:'6362365448112', start:6,  end:17},
+      {type:'bc', id:'6362364074112', start:15, end:20},
+      {type:'bc', id:'6362365448112', start:41, end:47},
+      {type:'bc', id:'6362365448112', start:67, end:73},
+      {type:'bc', id:'6362363145112', start:78, end:86}
+    ],
+    [
+      {type:'bc', id:'6362364273112', start:7,  end:15},
+      {type:'bc', id:'6362364074112', start:7,  end:13},
+      {type:'bc', id:'6362364666112', start:9,  end:18},
+      {type:'bc', id:'6362364111112', start:30, end:43}
+    ],
+    [
+      {type:'bc', id:'6362364273112', start:38,  end:49},
+      {type:'bc', id:'6362364666112', start:33,  end:44},
+      {type:'bc', id:'6362363145112', start:38,  end:52},
+      {type:'bc', id:'6362363145112', start:149, end:171},
+      {type:'bc', id:'6362364999112', start:61,  end:68}
+    ],
+    [
+      {type:'yt', id:'jzi_zfahHh0',   start:53, end:59},
+      {type:'bc', id:'6362364999112', start:13, end:30},
+      {type:'bc', id:'6362366234112', start:36, end:100},
+      {type:'bc', id:'6362364999112', start:32, end:45},
+      {type:'bc', id:'6362365074112', start:63, end:76}
+    ]
+  ];
+
+  var BC_ACCOUNT = '6415718365001';
+  var BC_PLAYER = 'D3UCGynRWU';
+
+  var tabsEl = document.getElementById('rt-tabs');
+  var dotsEl = document.getElementById('rt-dots');
+  var stageEl = document.getElementById('rt-stage');
+  var badgeEl = document.getElementById('rt-badge');
+  var stageStatusEl = document.getElementById('rt-stage-status');
+  var stageStatusBig = document.getElementById('rt-stage-status-big');
+  var stageStatusSmall = document.getElementById('rt-stage-status-small');
+  var tapEl = document.getElementById('rt-tap');
+  var ribbonFill = document.getElementById('rt-ribbon-fill');
+  var plabelEl = document.getElementById('rt-plabel');
+  var clabelEl = document.getElementById('rt-clabel');
+  var ctotalEl = document.getElementById('rt-ctotal');
+  var ppIcon = document.getElementById('rt-pp-icon');
+  var ppLabel = document.getElementById('rt-pp-label');
+  var prevBtn = document.getElementById('rt-prev');
+  var nextBtn = document.getElementById('rt-next');
+  var replayBtn = document.getElementById('rt-replay');
+  var ppBtn = document.getElementById('rt-playpause');
+  var muteBtn = document.getElementById('rt-mute');
+  var muteIcon = document.getElementById('rt-mute-icon');
+
+  var curPlaylist = 0;
+  var curClip = -1;           // -1 = no camera selected yet
+  var loadedPlaylistIndex = -1;
+  var camInstances = [];      // per-clip instances for the currently loaded playlist
+  var lastPlayFn = null;
+
+  var ICON_PLAY = '<path d="M8 5v14l11-7z"/>';
+  var ICON_PAUSE = '<path d="M6 5h4v14H6zm8 0h4v14h-4z"/>';
+  var ICON_MUTED = '<path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.42.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06a8.99 8.99 0 0 0 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/>';
+  var ICON_UNMUTED = '<path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>';
+
+  // Everything stays muted at all times (no audio needed for this use case).
+  // Muted autoplay is what lets each background camera silently play through
+  // its preroll ad and reach content without a user gesture.
+  var isMuted = true;
+
+  function setPPIcon(playing){
+    ppIcon.innerHTML = playing ? ICON_PAUSE : ICON_PLAY;
+    ppLabel.textContent = playing ? 'Pause' : 'Play';
+  }
+  function setMuteIcon(){
+    muteIcon.innerHTML = isMuted ? ICON_MUTED : ICON_UNMUTED;
+    muteBtn.title = isMuted ? 'Unmute' : 'Mute';
+  }
+  muteBtn.addEventListener('click', function(){
+    isMuted = !isMuted;
+    setMuteIcon();
+    camInstances.forEach(function(inst){
+      if (inst.type === 'bc' && inst.player) { try { inst.player.muted(isMuted); } catch(e){} }
+      if (inst.type === 'yt' && inst.ytPlayer) { try { isMuted ? inst.ytPlayer.mute() : inst.ytPlayer.unMute(); } catch(e){} }
+    });
+  });
+  setMuteIcon();
+
+  function attemptPlay(playFn){
+    lastPlayFn = playFn;
+    tapEl.classList.remove('show');
+    try {
+      var res = playFn();
+      if (res && typeof res.catch === 'function') {
+        res.catch(function(){ tapEl.classList.add('show'); });
+      }
+    } catch(e) {
+      tapEl.classList.add('show');
+    }
+  }
+  tapEl.addEventListener('click', function(){
+    if (lastPlayFn) attemptPlay(lastPlayFn);
+  });
+
+  // ---- Tabs (playlists A-E) ----
+  PLAYLISTS.forEach(function(pl, i){
+    var b = document.createElement('button');
+    b.className = 'tab';
+    b.textContent = String.fromCharCode(65 + i);
+    b.addEventListener('click', function(){ selectPlaylist(i); });
+    tabsEl.appendChild(b);
+  });
+
+  function renderTabs(){
+    Array.prototype.forEach.call(tabsEl.children, function(el, i){
+      el.classList.toggle('active', i === curPlaylist);
+    });
+  }
+
+  function selectPlaylist(pIdx){
+    if (pIdx === loadedPlaylistIndex) { curPlaylist = pIdx; renderTabs(); return; }
+    curPlaylist = pIdx;
+    renderTabs();
+    loadPlaylistCameras(pIdx);
+  }
+
+  // ---- Camera (clip) select buttons ----
+  function renderDots(){
+    dotsEl.innerHTML = '';
+    var clips = PLAYLISTS[curPlaylist];
+    clips.forEach(function(c, i){
+      var inst = camInstances[i];
+      var ready = !!(inst && inst.ready);
+      var d = document.createElement('button');
+      d.className = 'dot' + (i === curClip ? ' active' : '') + (ready ? ' ready' : ' loading');
+      d.textContent = ready ? (i + 1) : '…';
+      d.disabled = !ready;
+      d.title = ready ? ('Camera ' + (i + 1)) : 'Loading…';
+      d.addEventListener('click', function(){ selectCamera(i); });
+      dotsEl.appendChild(d);
+    });
+  }
+
+  function renderStatus(){
+    var total = PLAYLISTS[curPlaylist].length;
+    plabelEl.textContent = String.fromCharCode(65 + curPlaylist);
+    ctotalEl.textContent = total;
+    clabelEl.textContent = curClip >= 0 ? (curClip + 1) : '–';
+
+    var readyCount = camInstances.filter(function(i){ return i.ready; }).length;
+    ribbonFill.style.width = (total ? (readyCount / total) * 100 : 0) + '%';
+
+    var camReady = curClip >= 0 && camInstances[curClip] && camInstances[curClip].ready;
+    prevBtn.disabled = !(curClip > 0 && camInstances[curClip - 1] && camInstances[curClip - 1].ready);
+    nextBtn.disabled = !(curClip >= 0 && curClip < total - 1 && camInstances[curClip + 1] && camInstances[curClip + 1].ready);
+    replayBtn.disabled = !camReady;
+    ppBtn.disabled = !camReady;
+
+    if (curClip >= 0) {
+      badgeEl.textContent = 'CAM ' + (curClip + 1);
+    } else {
+      badgeEl.textContent = readyCount + ' / ' + total + ' ready';
+    }
+  }
+
+  function updateStageStatus(){
+    var total = camInstances.length;
+    var readyCount = camInstances.filter(function(i){ return i.ready; }).length;
+    if (curClip >= 0) {
+      stageStatusEl.classList.add('hide');
+      return;
+    }
+    stageStatusEl.classList.remove('hide');
+    if (readyCount === total && total > 0) {
+      stageStatusBig.textContent = 'All cameras ready';
+      stageStatusSmall.textContent = 'Click a number below to switch to that camera';
+    } else {
+      stageStatusBig.textContent = 'Loading cameras…';
+      stageStatusSmall.textContent = readyCount + ' / ' + total + ' ready (each is silently playing through its ad)';
+    }
+  }
+
+  // ---- Brightcove: generic instance initializer ----
+  // The Brightcove bundle auto-initializes <video-js> elements ONLY at the
+  // moment it first loads. Elements added to the DOM afterward (every
+  // playlist after the first) are never picked up automatically — they have
+  // to be manually initialized via the global bc() function, which returns
+  // the player instance directly.
+  function initBcElement(id, cb){
+    function tryInit(){
+      if (window.bc) {
+        var p = window.bc(id);
+        if (p) { cb(p); return true; }
+      }
+      return false;
+    }
+    if (tryInit()) return;
+    // Only relevant for the very first playlist, if this runs before the
+    // bundle script (loaded at the bottom of the page) has executed yet.
+    var tries = 0;
+    (function poll(){
+      if (tryInit()) return;
+      tries++;
+      if (tries > 200) { console.warn('[cam] bc() unavailable, timed out:', id); return; }
+      setTimeout(poll, 100);
+    })();
+  }
+
+  // ---- YouTube API (shared, loaded once) ----
+  var ytApiReady = false;
+  var ytApiQueue = [];
+  var ytApiTag = document.createElement('script');
+  ytApiTag.src = 'https://www.youtube.com/iframe_api';
+  document.head.appendChild(ytApiTag);
+  window.onYouTubeIframeAPIReady = function(){
+    ytApiReady = true;
+    ytApiQueue.forEach(function(fn){ fn(); });
+    ytApiQueue = [];
+  };
+
+  // ---- Dispose all cameras for the currently loaded playlist ----
+  function disposeCameras(){
+    camInstances.forEach(function(inst){
+      if (inst.type === 'bc' && inst.player) { try { inst.player.dispose(); } catch(e){} }
+      if (inst.type === 'yt' && inst.ytPlayer) { try { inst.ytPlayer.destroy(); } catch(e){} }
+      if (inst.container && inst.container.parentNode) { inst.container.parentNode.removeChild(inst.container); }
+    });
+    camInstances = [];
+  }
+
+  // ---- Load all cameras (clips) for a playlist in the background ----
+  function loadPlaylistCameras(pIdx){
+    disposeCameras();
+    loadedPlaylistIndex = pIdx;
+    curClip = -1;
+    var clips = PLAYLISTS[pIdx];
+
+    clips.forEach(function(clip, idx){
+      var inst = { type: clip.type, clip: clip, ready: false, container: null, player: null, ytPlayer: null, pollTimer: null };
+      camInstances.push(inst);
+      if (clip.type === 'bc') createBcCamera(inst, clip, idx, pIdx);
+      else createYtCamera(inst, clip, idx, pIdx);
+    });
+
+    renderDots();
+    renderStatus();
+    updateStageStatus();
+  }
+
+  function createBcCamera(inst, clip, idx, pIdx){
+    var container = document.createElement('div');
+    container.className = 'cam-instance';
+    container.style.display = 'none';
+    var vjsId = 'cam-bc-' + pIdx + '-' + idx;
+    container.innerHTML = '<video-js id="' + vjsId + '" class="video-js" data-account="' + BC_ACCOUNT + '" data-player="' + BC_PLAYER + '" data-embed="default" playsinline muted></video-js>';
+    stageEl.appendChild(container);
+    inst.container = container;
+
+    initBcElement(vjsId, function(p){
+      if (loadedPlaylistIndex !== pIdx) { try { p.dispose(); } catch(e){} return; } // playlist changed mid-load
+      inst.player = p;
+      p.ready(function(){
+        p.muted(true);
+        if (p.ads && typeof p.ads.disableAds === 'function') { p.ads.disableAds(); }
+        p.on('loadstart', function(){
+          if (p.ads && typeof p.ads.disableAds === 'function') { p.ads.disableAds(); }
+        });
+
+        // 'loadedmetadata' fires once real content is ready — after any
+        // preroll ad has already played out, per Brightcove's ad-lifecycle
+        // event redispatch. That's our signal this camera is primed.
+        p.one('loadedmetadata', function(){
+          p.currentTime(clip.start);
+          p.pause();
+          inst.ready = true;
+          renderDots();
+          renderStatus();
+          updateStageStatus();
+        });
+
+        p.on('timeupdate', function(){
+          if (curClip === idx && camInstances[idx] === inst) {
+            if (p.currentTime() >= clip.end) { p.pause(); }
+          }
+        });
+        p.on('play', function(){ if (curClip === idx && camInstances[idx] === inst) setPPIcon(true); });
+        p.on('pause', function(){ if (curClip === idx && camInstances[idx] === inst) setPPIcon(false); });
+
+        p.catalog.getVideo(clip.id, function(error, video){
+          if (error) { console.error('[cam ' + idx + ']', error); return; }
+          p.catalog.load(video);
+          // Muted play is allowed without a user gesture — this is what
+          // lets the ad (and then content) run automatically in the background.
+          attemptPlay(function(){ return p.play(); });
+        });
+      });
+    });
+  }
+
+  function createYtCamera(inst, clip, idx, pIdx){
+    var container = document.createElement('div');
+    container.className = 'cam-instance';
+    container.style.display = 'none';
+    var innerId = 'cam-yt-' + pIdx + '-' + idx;
+    var inner = document.createElement('div');
+    inner.id = innerId;
+    inner.style.width = '100%';
+    inner.style.height = '100%';
+    container.appendChild(inner);
+    stageEl.appendChild(container);
+    inst.container = container;
+
+    function init(){
+      if (loadedPlaylistIndex !== pIdx) return; // playlist changed before API was ready
+      var yp = new YT.Player(innerId, {
+        height: '100%',
+        width: '100%',
+        playerVars: { playsinline: 1, rel: 0, modestbranding: 1, mute: 1 },
+        events: {
+          onReady: function(){
+            try { yp.mute(); } catch(e){}
+            yp.loadVideoById({ videoId: clip.id, startSeconds: clip.start });
+          },
+          onStateChange: function(e){
+            if (e.data === YT.PlayerState.PLAYING && !inst.ready) {
+              yp.seekTo(clip.start, true);
+              yp.pauseVideo();
+              inst.ready = true;
+              renderDots();
+              renderStatus();
+              updateStageStatus();
+              return;
+            }
+            if (curClip === idx && camInstances[idx] === inst) {
+              if (e.data === YT.PlayerState.PLAYING) {
+                setPPIcon(true);
+                clearInterval(inst.pollTimer);
+                inst.pollTimer = setInterval(function(){
+                  if (yp.getCurrentTime() >= clip.end) { yp.pauseVideo(); clearInterval(inst.pollTimer); }
+                }, 200);
+              } else if (e.data === YT.PlayerState.PAUSED) {
+                setPPIcon(false);
+              }
+            }
+          }
+        }
+      });
+      inst.ytPlayer = yp;
+    }
+    if (ytApiReady) init(); else ytApiQueue.push(init);
+  }
+
+  // ---- Camera switching (the "director" action) ----
+  function selectCamera(idx){
+    var inst = camInstances[idx];
+    if (!inst || !inst.ready) return;
+    camInstances.forEach(function(ci, i){
+      if (ci.container) ci.container.style.display = (i === idx ? 'block' : 'none');
+    });
+    curClip = idx;
+    renderDots();
+    renderStatus();
+    updateStageStatus();
+    playCurrentCamera();
+  }
+
+  function playCurrentCamera(){
+    if (curClip < 0) return;
+    var inst = camInstances[curClip];
+    var clip = PLAYLISTS[curPlaylist][curClip];
+    if (!inst) return;
+    if (inst.type === 'bc' && inst.player) {
+      inst.player.currentTime(clip.start);
+      attemptPlay(function(){ return inst.player.play(); });
+    } else if (inst.type === 'yt' && inst.ytPlayer) {
+      inst.ytPlayer.seekTo(clip.start, true);
+      attemptPlay(function(){ inst.ytPlayer.playVideo(); });
+    }
+  }
+
+  // ---- Transport controls ----
+  prevBtn.addEventListener('click', function(){
+    if (curClip > 0) selectCamera(curClip - 1);
+  });
+  nextBtn.addEventListener('click', function(){
+    var total = PLAYLISTS[curPlaylist].length;
+    if (curClip >= 0 && curClip < total - 1) selectCamera(curClip + 1);
+  });
+  replayBtn.addEventListener('click', function(){
+    playCurrentCamera();
+  });
+  ppBtn.addEventListener('click', function(){
+    if (curClip < 0) return;
+    var inst = camInstances[curClip];
+    if (!inst) return;
+    if (inst.type === 'bc' && inst.player) {
+      if (inst.player.paused()) { attemptPlay(function(){ return inst.player.play(); }); }
+      else { inst.player.pause(); }
+    } else if (inst.type === 'yt' && inst.ytPlayer) {
+      var state = inst.ytPlayer.getPlayerState();
+      if (state === YT.PlayerState.PLAYING) { inst.ytPlayer.pauseVideo(); }
+      else { attemptPlay(function(){ inst.ytPlayer.playVideo(); }); }
+    }
+  });
+
+  // ---- Init ----
+  renderTabs();
+  loadPlaylistCameras(0);
+})();
+</script>
+<script src="https://players.brightcove.net/6415718365001/D3UCGynRWU_default/index.min.js"></script>
