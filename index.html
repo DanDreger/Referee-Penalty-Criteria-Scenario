@@ -681,6 +681,7 @@
 
   // ---- Load all cameras (clips) for a playlist in the background ----
   var CAMERA_LOAD_TIMEOUT_MS = 20000;
+  var MAX_AUTO_RETRIES = 3;
 
   function loadPlaylistCameras(pIdx){
     disposeCameras();
@@ -689,7 +690,7 @@
     var clips = PLAYLISTS[pIdx];
 
     clips.forEach(function(clip, idx){
-      startCamera(clip, idx, pIdx);
+      startCamera(clip, idx, pIdx, 0);
     });
 
     renderDots();
@@ -697,14 +698,31 @@
     updateStageStatus();
   }
 
-  function startCamera(clip, idx, pIdx){
-    var inst = { type: clip.type, clip: clip, status: 'loading', container: null, player: null, ytPlayer: null, pollTimer: null, timeoutTimer: null };
+  function disposeInstMedia(inst){
+    if (!inst) return;
+    clearTimeout(inst.timeoutTimer);
+    clearInterval(inst.pollTimer);
+    if (inst.type === 'bc' && inst.player) { try { inst.player.dispose(); } catch(e){} }
+    if (inst.type === 'yt' && inst.ytPlayer) { try { inst.ytPlayer.destroy(); } catch(e){} }
+    if (inst.container && inst.container.parentNode) { inst.container.parentNode.removeChild(inst.container); }
+  }
+
+  // autoRetryCount tracks silent, automatic retries (no UI error shown yet).
+  // gen is a unique suffix per attempt so a fresh DOM element/player id is
+  // used each time, avoiding any collision with a not-fully-torn-down prior attempt.
+  function startCamera(clip, idx, pIdx, autoRetryCount){
+    var inst = {
+      type: clip.type, clip: clip, status: 'loading',
+      container: null, player: null, ytPlayer: null, pollTimer: null, timeoutTimer: null,
+      autoRetryCount: autoRetryCount || 0,
+      gen: Date.now() + '-' + Math.floor(Math.random() * 100000)
+    };
     camInstances[idx] = inst;
 
     inst.timeoutTimer = setTimeout(function(){
       if (loadedPlaylistIndex !== pIdx || camInstances[idx] !== inst) return;
       if (inst.status === 'loading') {
-        console.warn('[cam ' + idx + '] timed out waiting for content to become ready');
+        console.warn('[cam ' + idx + '] timed out waiting for content to become ready (attempt ' + (inst.autoRetryCount + 1) + ')');
         markCameraError(inst, idx, pIdx);
       }
     }, CAMERA_LOAD_TIMEOUT_MS);
@@ -725,6 +743,22 @@
   function markCameraError(inst, idx, pIdx){
     if (loadedPlaylistIndex !== pIdx || camInstances[idx] !== inst) return;
     clearTimeout(inst.timeoutTimer);
+
+    if (inst.autoRetryCount < MAX_AUTO_RETRIES) {
+      var nextCount = inst.autoRetryCount + 1;
+      var delay = 1500 * nextCount; // back off a bit longer each attempt
+      console.warn('[cam ' + idx + '] auto-retrying in ' + delay + 'ms (' + nextCount + '/' + MAX_AUTO_RETRIES + ')');
+      disposeInstMedia(inst);
+      setTimeout(function(){
+        if (loadedPlaylistIndex !== pIdx) return; // playlist changed, abandon
+        startCamera(PLAYLISTS[pIdx][idx], idx, pIdx, nextCount);
+        renderDots();
+        renderStatus();
+        updateStageStatus();
+      }, delay);
+      return; // stays visually "loading" during silent auto-retries
+    }
+
     inst.status = 'error';
     renderDots();
     renderStatus();
@@ -733,15 +767,8 @@
 
   function retryCamera(idx){
     var pIdx = loadedPlaylistIndex;
-    var old = camInstances[idx];
-    if (old) {
-      clearTimeout(old.timeoutTimer);
-      clearInterval(old.pollTimer);
-      if (old.type === 'bc' && old.player) { try { old.player.dispose(); } catch(e){} }
-      if (old.type === 'yt' && old.ytPlayer) { try { old.ytPlayer.destroy(); } catch(e){} }
-      if (old.container && old.container.parentNode) { old.container.parentNode.removeChild(old.container); }
-    }
-    startCamera(PLAYLISTS[pIdx][idx], idx, pIdx);
+    disposeInstMedia(camInstances[idx]);
+    startCamera(PLAYLISTS[pIdx][idx], idx, pIdx, 0); // manual retry resets the auto-retry budget
     renderDots();
     renderStatus();
     updateStageStatus();
@@ -751,7 +778,7 @@
     var container = document.createElement('div');
     container.className = 'cam-instance';
     container.style.display = 'none';
-    var vjsId = 'cam-bc-' + pIdx + '-' + idx;
+    var vjsId = 'cam-bc-' + pIdx + '-' + idx + '-' + inst.gen;
     container.innerHTML = '<video-js id="' + vjsId + '" class="video-js" data-account="' + BC_ACCOUNT + '" data-player="' + BC_PLAYER + '" data-embed="default" playsinline muted></video-js>';
     stageEl.appendChild(container);
     inst.container = container;
@@ -808,7 +835,7 @@
     var container = document.createElement('div');
     container.className = 'cam-instance';
     container.style.display = 'none';
-    var innerId = 'cam-yt-' + pIdx + '-' + idx;
+    var innerId = 'cam-yt-' + pIdx + '-' + idx + '-' + inst.gen;
     var inner = document.createElement('div');
     inner.id = innerId;
     inner.style.width = '100%';
